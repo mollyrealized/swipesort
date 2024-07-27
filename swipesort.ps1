@@ -1,5 +1,3 @@
-# PowerShell Script
-
 param(
     [string]$inputFileName = "input.txt" # Default input file name
 )
