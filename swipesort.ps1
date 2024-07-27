@@ -5,7 +5,7 @@
     Prerequisite   : PowerShell V3 or higher
     Copyright      : (c) 2024 MollyInanna
     License        : AGPL-3.0
-    Version        : 2.0.1
+    Version        : 1.0
     Creation Date  : 2024
     Last Modified  : 2024-07-27
 
