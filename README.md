@@ -18,13 +18,7 @@ SwipeSort is a versatile tool for quickly sorting through lines of a text file u
 
 ## Installation
 
-1. Download the SwipeSort package from the releases page.
-2. Choose your preferred version:
-   - EXE: Place `swipesort.exe` in a directory that's already in your system PATH.
-   - PS1/BAT: 
-     - Place both `swipesort.bat` and `swipesort.ps1` in a directory that's already in your system PATH, or
-     - Place the files in your desired location and edit `swipesort.bat` to reflect the full path of `swipesort.ps1` on your system.
-3. For PS1 version: Ensure PowerShell execution policy allows running scripts.
+Download your preferred version (BAT/PS1 or EXE) from the [Releases](https://github.com/mollyrealized/swipesort/releases) page.
 
 ## Usage
 
