@@ -85,6 +85,6 @@ Contributions, issues, and feature requests are welcome! Feel free to check the 
 
 ## Author
 
-**MollyInanna**
+**Molly Harris**
 
 - GitHub: [@mollyrealized](https://github.com/mollyrealized)
