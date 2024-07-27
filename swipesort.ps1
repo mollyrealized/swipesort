@@ -2,32 +2,48 @@
 .NOTES
     File Name      : swipesort.ps1
     Author         : MollyInanna
-    Prerequisite   : None
+    Prerequisite   : PowerShell V3 or higher
     Copyright      : (c) 2024 MollyInanna
     License        : AGPL-3.0
-    Version        : 1.0
+    Version        : 2.0.1
     Creation Date  : 2024
     Last Modified  : 2024-07-27
 
 .SYNOPSIS
-    Tinder-like PowerShell script for sorting text file contents via keyboard input, creating separate files for accepted and rejected items.
+    A Tinder-like PowerShell script for sorting text file contents via keyboard input.
 
 .DESCRIPTION
-    [to be determined]
+    This script allows users to process text files line by line, sorting each line into 'left' or 'right' categories
+    using arrow key inputs. It supports a configurable UI mode and remembers progress between sessions.
 
 .PARAMETER inputFileName
     The name of the input file to process. This should be a text file.
 
+.PARAMETER ui
+    Used to set the UI mode. Use '-ui on' for verbose mode or '-ui off' for minimal mode.
+
 .EXAMPLE
+    Set UI mode to verbose:
+    .\swipesort.ps1 -ui on
+
+.EXAMPLE
+    Set UI mode to minimal:
+    .\swipesort.ps1 -ui off
+
+.EXAMPLE
+    Process a file:
     .\swipesort.ps1 input.txt
 
 .LINK
     https://github.com/mollyrealized/swipesort
+
 #>
 
 param(
-    [Parameter(Mandatory=$true, Position=0)]
-    [string]$inputFileName
+    [Parameter(Mandatory=$false, Position=0)]
+    [string]$inputFileName,
+    [Parameter(Mandatory=$false)]
+    [string]$ui
 )
 
 # Function to handle errors consistently
@@ -37,10 +53,39 @@ function Write-ErrorAndExit {
     exit 1
 }
 
-# Check if more than one argument is provided
-if ($args.Count -gt 0) {
-    Write-ErrorAndExit "Only a single filename should be provided."
+$uiConfigFilePath = Join-Path ([System.Environment]::GetFolderPath('ApplicationData')) "swipesort-ui.cfg"
+
+# Handle UI configuration
+function Set-UiConfig {
+    param([string]$Value)
+    Set-Content -Path $uiConfigFilePath -Value $Value -Force
 }
+
+function Get-UiConfig {
+    if (Test-Path $uiConfigFilePath) {
+        return Get-Content $uiConfigFilePath
+    }
+    return "1"  # Default to verbose if file doesn't exist
+}
+
+# Handle UI setting command
+if ($ui -eq "on") {
+    Set-UiConfig "1"
+    exit 0
+} elseif ($ui -eq "off") {
+    Set-UiConfig "0"
+    exit 0
+}
+
+# If no input file is provided and no UI command, show usage
+if (-not $inputFileName) {
+    Write-Host "Usage:"
+    Write-Host "  Set UI mode: .\swipesort.ps1 -ui on|off"
+    Write-Host "  Run script: .\swipesort.ps1 <input_file>"
+    exit 0
+}
+
+$uiMode = Get-UiConfig
 
 # Check if the input file exists and is a text file
 if (-not (Test-Path $inputFileName -PathType Leaf)) {
@@ -64,6 +109,53 @@ $leftFileName = $inputFileName -replace '\.(\w+)$', '-left.$1'
 $rightFileName = $inputFileName -replace '\.(\w+)$', '-right.$1'
 $configFilePath = Join-Path ([System.Environment]::GetFolderPath('ApplicationData')) "swipesort.cfg"
 
+# Function definitions
+function Read-LastIndexConfig {
+    param(
+        [string]$ConfigFilePath,
+        [string]$InputFileName
+    )
+
+    $config = @{}
+    if (Test-Path $ConfigFilePath) {
+        $configContent = Get-Content $ConfigFilePath -ErrorAction Stop
+        foreach ($line in $configContent) {
+            $pair = $line -split '=',2
+            if($pair.Count -eq 2) {
+                $config[$pair[0]] = [int]$pair[1]
+            }
+        }
+    }
+    if ($config.ContainsKey($InputFileName)) {
+        return $config[$InputFileName]
+    } else {
+        return 0
+    }
+}
+
+function Write-LastIndexConfig {
+    param(
+        [string]$ConfigFilePath,
+        [string]$InputFileName,
+        [int]$LastIndex
+    )
+
+    $config = @{}
+    if (Test-Path $ConfigFilePath) {
+        $configContent = Get-Content $ConfigFilePath -ErrorAction Stop
+        foreach ($line in $configContent) {
+            $pair = $line -split '=',2
+            if($pair.Count -eq 2) {
+                $config[$pair[0]] = $pair[1]
+            }
+        }
+    }
+    $config[$InputFileName] = $LastIndex
+    $config.GetEnumerator() | ForEach-Object {
+        "$($_.Key)=$($_.Value)"
+    } | Out-File $ConfigFilePath -Force -ErrorAction SilentlyContinue
+}
+
 function Append-ToFile {
     param(
         [string]$Path,
@@ -77,6 +169,7 @@ function Append-ToFile {
     }
 }
 
+# Main script logic
 try {
     $currentIndex = Read-LastIndexConfig -ConfigFilePath $configFilePath -InputFileName $inputFileName
 
@@ -87,7 +180,9 @@ try {
         if ($currentIndex -ge $lines.Length) { break }
         $currentLine = $lines[$currentIndex]
         Write-Host $currentLine
-        Write-Host "Swipe Left <- | Swipe Right -> | Undo ^ | Quit Q"
+        if ($uiMode -eq "1") {
+            Write-Host "Swipe Left <- | Swipe Right -> | Undo ^ | Quit Q"
+        }
 
         $key = $null
         while ($null -eq $key) {
@@ -122,11 +217,15 @@ try {
                 }
                 81 { # Q key code
                     Write-LastIndexConfig -ConfigFilePath $configFilePath -InputFileName $inputFileName -LastIndex $currentIndex
-                    Write-Host "Progress saved. Exiting..."
+                    if ($uiMode -eq "1") {
+                        Write-Host "Progress saved. Exiting..."
+                    }
                     return
                 }
                 default { 
-                    Write-Host "Invalid key. Please use arrow keys or 'Q' to quit." -ForegroundColor Yellow
+                    if ($uiMode -eq "1") {
+                        Write-Host "Invalid key. Please use arrow keys or 'Q' to quit." -ForegroundColor Yellow
+                    }
                     $key = $null 
                 }
             }
@@ -135,7 +234,9 @@ try {
         Write-LastIndexConfig -ConfigFilePath $configFilePath -InputFileName $inputFileName -LastIndex $currentIndex
     } while ($currentIndex -lt $lines.Length)
 
-    Write-Host "All lines processed. Files for left and right swipes are up to date."
+    if ($uiMode -eq "1") {
+        Write-Host "All lines processed. Files for left and right swipes are up to date."
+    }
 } catch {
     Write-ErrorAndExit "An unexpected error occurred: $_"
 } finally {
